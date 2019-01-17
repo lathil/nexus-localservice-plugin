@@ -4,9 +4,7 @@ import com.google.common.base.Supplier;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
@@ -615,8 +613,10 @@ public class LocalServiceResource  extends ComponentSupport
         HttpUriRequest request = RequestBuilder.get()
                 .setUri(url + "/" +artifactPath)
                 .build();
+
+        HttpResponse httpClientResponse = null;
         try {
-            HttpResponse httpClientResponse = client.execute(request);
+            httpClientResponse = client.execute(request);
             int status = httpClientResponse.getStatusLine().getStatusCode();
             if (status >= 200 && status < 300) {
                 HttpEntity entity = httpClientResponse.getEntity();
@@ -634,12 +634,16 @@ public class LocalServiceResource  extends ComponentSupport
                 }
                 responseBuilder.header("Content-Disposition", "attachment;filename=\"" + artifactPath + "\"");
                 response = responseBuilder.build();
+            } else {
+                EntityUtils.consume(httpClientResponse.getEntity());
             }
 
-        } catch (ClientProtocolException ex ){
-
-        } catch (IOException ex) {
-
+        } catch (IOException ex ){
+            if( httpClientResponse!= null){
+                try {
+                    EntityUtils.consume(httpClientResponse.getEntity());
+                } catch (IOException excp) {}
+            }
         }
         return response;
     }

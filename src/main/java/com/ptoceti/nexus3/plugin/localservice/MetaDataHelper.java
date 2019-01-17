@@ -79,7 +79,7 @@ public class MetaDataHelper {
         }
     }
 
-    public static Metadata readRemote( final Repository repository, final MavenPath mavenPath) throws IOException, XmlPullParserException{
+    public static Metadata readRemote( final Repository repository, final MavenPath mavenPath) {
 
         String url = repository.getUrl();
         String metaDataRespnse = null;
@@ -89,19 +89,30 @@ public class MetaDataHelper {
                 .setUri(url + "/" + mavenPath.getPath())
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/xml")
                 .build();
-        HttpResponse response = client.execute(request);
 
-        int status = response.getStatusLine().getStatusCode();
-        if (status >= 200 && status < 300) {
-            HttpEntity entity = response.getEntity();
-            if( entity != null){
-                metaDataRespnse = EntityUtils.toString(entity);
-                MetadataXpp3Reader reader =  new MetadataXpp3Reader();
-                Metadata metadata = reader.read(new StringReader(metaDataRespnse), false);
-                return metadata;
+        HttpResponse response = null;
+
+        try {
+            response = client.execute(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 200 && status < 300) {
+                HttpEntity entity = response.getEntity();
+                if (entity != null) {
+                    metaDataRespnse = EntityUtils.toString(entity);
+                    MetadataXpp3Reader reader = new MetadataXpp3Reader();
+                    Metadata metadata = reader.read(new StringReader(metaDataRespnse), false);
+                    return metadata;
+                }
+            } else {
+                EntityUtils.consume(response.getEntity());
+            }
+        } catch (IOException | XmlPullParserException ex) {
+            if( response!= null){
+                try {
+                    EntityUtils.consume(response.getEntity());
+                } catch (IOException excp) {}
             }
         }
-
         return null;
     }
 
