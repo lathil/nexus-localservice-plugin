@@ -122,6 +122,7 @@ public class LocalServiceResource  extends ComponentSupport
             return NOT_FOUND;
         }
 
+        String baseVersion = version;
         String resolvedVersion = version;
 
         try {
@@ -146,11 +147,13 @@ public class LocalServiceResource  extends ComponentSupport
             if (resolvedVersion == null) {
                 return NOT_FOUND;
             }
-            versionMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
-            if (versionMetaData == null) {
-                return NOT_FOUND;
-            }
+
+            baseVersion = resolvedVersion;
             if (resolvedVersion.endsWith(SNAPSHOT_VERSION_SUFFIX)) {
+                versionMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
+                if (versionMetaData == null) {
+                    return NOT_FOUND;
+                }
                 resolvedVersion = getSnapshotVersionFromMetaData(repository, versionMetaData, resolvedVersion);
             }
 
@@ -184,12 +187,12 @@ public class LocalServiceResource  extends ComponentSupport
                 artifact = searchAssetRemote(repository, groupId, artifactId, classifier, extension, packaging, resolvedVersion);
             }
             if( artifact == null) {
-                artifact = makeArtifactFromMetaData(groupId, artifactId, classifier, extension, resolvedVersion, version, versionMetaData);
+                artifact = makeArtifactFromMetaData(groupId, artifactId, classifier, extension, resolvedVersion, baseVersion, versionMetaData);
             }
         } else if ( repository.getType().getValue().equals(ProxyType.NAME )){
             artifact = searchAssetLocal(repository, groupId, artifactId, classifier, extension, packaging, resolvedVersion);
             if( artifact == null) {
-                artifact = makeArtifactFromMetaData(groupId, artifactId, classifier, extension, resolvedVersion, version, versionMetaData);
+                artifact = makeArtifactFromMetaData(groupId, artifactId, classifier, extension, resolvedVersion, baseVersion, versionMetaData);
             }
         }
 
@@ -238,6 +241,7 @@ public class LocalServiceResource  extends ComponentSupport
             return NOT_FOUND;
         }
 
+        String baseVersion = version;
         String resolvedVersion = version;
 
         try {
@@ -262,11 +266,14 @@ public class LocalServiceResource  extends ComponentSupport
                 return NOT_FOUND;
             }
 
-            versionMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
-            if (versionMetaData == null) {
-                return NOT_FOUND;
-            }
+
+
+            baseVersion = resolvedVersion;
             if (resolvedVersion.endsWith(SNAPSHOT_VERSION_SUFFIX) && versionMetaData != null) {
+                versionMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
+                if (versionMetaData == null) {
+                    return NOT_FOUND;
+                }
                 resolvedVersion = getSnapshotVersionFromMetaData(repository, versionMetaData, resolvedVersion);
             }
 
@@ -288,19 +295,19 @@ public class LocalServiceResource  extends ComponentSupport
             for (Repository nextRepository : repositories) {
                 if (nextRepository.getType().getValue().equals(HostedType.NAME) ||
                         nextRepository.getType().getValue().equals(ProxyType.NAME)) {
-                    response =  getContentLocaly(repository, groupId, artifactId, resolvedVersion, classifier, extension, packaging);
+                    response =  getContentLocaly(nextRepository, groupId, artifactId, resolvedVersion, classifier, extension, packaging);
                     if ( response != null) {
                         break;
                     }
                 }
             }
             if( response == null){
-                response  = getContentRemote(repository, groupId, artifactId, version, resolvedVersion, classifier, extension, packaging);
+                response  = getContentRemote(repository, groupId, artifactId, baseVersion, resolvedVersion, classifier, extension, packaging);
             }
         } else if ( repository.getType().getValue().equals(ProxyType.NAME )){
             response =  getContentLocaly(repository, groupId, artifactId, resolvedVersion, classifier, extension, packaging);
             if( response == null){
-                response  = getContentRemote(repository, groupId, artifactId, version, resolvedVersion, classifier, extension, packaging);
+                response  = getContentRemote(repository, groupId, artifactId, baseVersion, resolvedVersion, classifier, extension, packaging);
             }
         }
 
@@ -592,6 +599,7 @@ public class LocalServiceResource  extends ComponentSupport
         boolean isSnapshot = baseVersion != null && baseVersion.endsWith(SNAPSHOT_VERSION_SUFFIX);
         if (isSnapshot) {
 
+            if( metadata == null) return null;
             Snapshot snapshot = metadata.getVersioning().getSnapshot();
             if (snapshot != null && StringUtils.isNotBlank(snapshot.getTimestamp()) && (snapshot.getBuildNumber() > 0)) {
 
