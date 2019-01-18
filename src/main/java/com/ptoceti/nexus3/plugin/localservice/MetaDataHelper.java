@@ -12,6 +12,7 @@ import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
+import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.repository.Repository;
 import org.sonatype.nexus.repository.group.GroupFacet;
 import org.sonatype.nexus.repository.maven.MavenFacet;
@@ -25,41 +26,25 @@ import org.sonatype.nexus.transaction.UnitOfWork;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URL;
 import java.util.List;
 
-public class MetaDataHelper {
+public class MetaDataHelper extends ComponentSupport  {
 
-    public static Metadata read(final Repository repository, final MavenPath mavenPath) throws IOException, XmlPullParserException {
+    public Metadata read(final Repository repository, final MavenPath mavenPath) throws IOException, XmlPullParserException {
         Metadata metadata = null;
-        if (repository.getType().getValue().equals(HostedType.NAME)) {
-            metadata =  MetaDataHelper.readLocal(repository, mavenPath);
-        } else if ( repository.getType().getValue().equals(GroupType.NAME))  {
 
-            GroupFacet groupFacet = repository.facet(GroupFacet.class);
-            List<Repository> repositories = groupFacet.leafMembers();
-            for (Repository nextRepository : repositories) {
-                if (nextRepository.getType().getValue().equals(HostedType.NAME) ||
-                        nextRepository.getType().getValue().equals(ProxyType.NAME)) {
-                    metadata = MetaDataHelper.readLocal(repository, mavenPath);
-                    if ( metadata != null) {
-                        break;
-                    }
-                }
-            }
-            if( metadata == null) {
-                metadata = MetaDataHelper.readRemote(repository, mavenPath);
-            }
-        } else if ( repository.getType().getValue().equals(ProxyType.NAME )){
-            metadata =  MetaDataHelper.readLocal(repository, mavenPath);
-            if( metadata == null) {
-                metadata = MetaDataHelper.readRemote(repository, mavenPath);
-            }
+        if (repository.getType().getValue().equals(HostedType.NAME)) {
+            metadata = readLocal(repository, mavenPath);
+        } else {
+            // alwayz try to get latest metadata, this way we get aggregation
+            metadata = readRemote(repository, mavenPath);
         }
 
         return metadata;
     }
 
-    public static Metadata readLocal(final Repository repository, final MavenPath mavenPath) throws IOException, XmlPullParserException {
+    public Metadata readLocal(final Repository repository, final MavenPath mavenPath) throws IOException, XmlPullParserException {
 
         StorageFacet storagefacet = repository.facet(StorageFacet.class);
         UnitOfWork.begin(storagefacet.txSupplier());
@@ -70,6 +55,7 @@ public class MetaDataHelper {
             if (content == null) {
                 return null;
             } else {
+                log.debug("readLocal : loading metadata from repository: {}", repository.getName());
                 MetadataXpp3Reader reader = new MetadataXpp3Reader();
                 Metadata metadata = reader.read(content.openInputStream(), false);
                 return metadata;
@@ -79,20 +65,25 @@ public class MetaDataHelper {
         }
     }
 
-    public static Metadata readRemote( final Repository repository, final MavenPath mavenPath) {
+    public Metadata readRemote( final Repository repository, final MavenPath mavenPath) {
 
-        String url = repository.getUrl();
+
         String metaDataRespnse = null;
-
-        HttpClient client = HttpClients.custom().build();
-        HttpUriRequest request = RequestBuilder.get()
-                .setUri(url + "/" + mavenPath.getPath())
-                .setHeader(HttpHeaders.CONTENT_TYPE, "application/xml")
-                .build();
+        String url = repository.getUrl();
+        String applicationPort = System.getProperty("application-port");
 
         HttpResponse response = null;
 
         try {
+            URL repoUrl = new URL(url);
+            URL localRepoUrl = new URL("http", "localhost", Integer.parseInt(applicationPort), repoUrl.getFile());
+            HttpClient client = HttpClients.custom().build();
+            log.debug("readRemote : loading metatada at {}", localRepoUrl);
+            HttpUriRequest request = RequestBuilder.get()
+                    .setUri(localRepoUrl + "/" + mavenPath.getPath())
+                    .setHeader(HttpHeaders.CONTENT_TYPE, "application/xml")
+                    .build();
+
             response = client.execute(request);
             int status = response.getStatusLine().getStatusCode();
             if (status >= 200 && status < 300) {
@@ -107,6 +98,7 @@ public class MetaDataHelper {
                 EntityUtils.consume(response.getEntity());
             }
         } catch (IOException | XmlPullParserException ex) {
+            log.debug("readRemote : error loading metatada at {}, ex: {}", url + "/" + mavenPath.getPath(), ex.getMessage());
             if( response!= null){
                 try {
                     EntityUtils.consume(response.getEntity());
@@ -116,7 +108,7 @@ public class MetaDataHelper {
         return null;
     }
 
-    public static MavenPath metadataPath(String groupId, String artifactId, String baseVersion){
+    public MavenPath metadataPath(String groupId, String artifactId, String baseVersion){
 
         StringBuilder sb = new StringBuilder();
         sb.append( groupId.replace('.', '/'));

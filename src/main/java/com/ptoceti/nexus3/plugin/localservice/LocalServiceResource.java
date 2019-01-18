@@ -49,6 +49,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -67,6 +69,7 @@ public class LocalServiceResource  extends ComponentSupport
     private final RepositoryManager repositoryManager;
     private final SearchService searchService;
 
+    MetaDataHelper metaDataHelper;
     Metadata componentMetaData;
     Metadata versionMetaData;
 
@@ -74,6 +77,9 @@ public class LocalServiceResource  extends ComponentSupport
     LocalServiceResource(SearchService searchService, RepositoryManager repositoryManager) {
         this.searchService = checkNotNull(searchService);
         this.repositoryManager = checkNotNull(repositoryManager);
+
+        metaDataHelper = new MetaDataHelper();
+
     }
 
     /**
@@ -120,7 +126,7 @@ public class LocalServiceResource  extends ComponentSupport
 
         try {
             if (resolvedVersion.equals("LATEST")) {
-                componentMetaData = MetaDataHelper.read(repository, MetaDataHelper.metadataPath(groupId, artifactId, null));
+                componentMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, null));
                 if (componentMetaData != null) {
                     resolvedVersion = getLatestVersionFromMetaData(repository, componentMetaData);
                 }
@@ -128,7 +134,7 @@ public class LocalServiceResource  extends ComponentSupport
                     log.debug("Resolve: not latest version found");
                 }
             } else if (resolvedVersion.equals("RELEASE")) {
-                componentMetaData = MetaDataHelper.read(repository, MetaDataHelper.metadataPath(groupId, artifactId, null));
+                componentMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, null));
                 if (componentMetaData != null) {
                     resolvedVersion = getReleaseVersionFromMetaData(repository, componentMetaData);
                 }
@@ -140,7 +146,7 @@ public class LocalServiceResource  extends ComponentSupport
             if (resolvedVersion == null) {
                 return NOT_FOUND;
             }
-            versionMetaData = MetaDataHelper.read(repository, MetaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
+            versionMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
             if (versionMetaData == null) {
                 return NOT_FOUND;
             }
@@ -236,7 +242,7 @@ public class LocalServiceResource  extends ComponentSupport
 
         try {
             if (resolvedVersion.equals("LATEST")) {
-                componentMetaData = MetaDataHelper.read(repository, MetaDataHelper.metadataPath(groupId, artifactId, null));
+                componentMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, null));
                 if (componentMetaData != null) {
                     resolvedVersion = getLatestVersionFromMetaData(repository, componentMetaData);
                 }
@@ -244,7 +250,7 @@ public class LocalServiceResource  extends ComponentSupport
                     log.debug("Content: not latest version found");
                 }
             } else if (resolvedVersion.equals("RELEASE")) {
-                componentMetaData = MetaDataHelper.read(repository, MetaDataHelper.metadataPath(groupId, artifactId, null));
+                componentMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, null));
                 if (componentMetaData != null) {
                     resolvedVersion = getReleaseVersionFromMetaData(repository, componentMetaData);
                 }
@@ -256,7 +262,7 @@ public class LocalServiceResource  extends ComponentSupport
                 return NOT_FOUND;
             }
 
-            versionMetaData = MetaDataHelper.read(repository, MetaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
+            versionMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, resolvedVersion));
             if (versionMetaData == null) {
                 return NOT_FOUND;
             }
@@ -607,15 +613,22 @@ public class LocalServiceResource  extends ComponentSupport
         Response response = null;
 
         String url = repository.getUrl();
+        String applicationPort = System.getProperty("application-port");
+
         String artifactPath = PathUtils.calculatePath( groupId, artifactId, baseVersion, resolvedVersion, classifier, extension);
 
-        HttpClient client = HttpClients.custom().build();
-        HttpUriRequest request = RequestBuilder.get()
-                .setUri(url + "/" +artifactPath)
-                .build();
-
         HttpResponse httpClientResponse = null;
+
         try {
+            URL repoUrl = new URL(url);
+            URL localRepoUrl = new URL("http", "localhost", Integer.parseInt(applicationPort), repoUrl.getFile());
+
+            HttpClient client = HttpClients.custom().build();
+            log.debug("getContentRemote : loading content at {}", localRepoUrl );
+            HttpUriRequest request = RequestBuilder.get()
+                    .setUri(localRepoUrl + "/" +artifactPath)
+                    .build();
+
             httpClientResponse = client.execute(request);
             int status = httpClientResponse.getStatusLine().getStatusCode();
             if (status >= 200 && status < 300) {
@@ -638,7 +651,8 @@ public class LocalServiceResource  extends ComponentSupport
                 EntityUtils.consume(httpClientResponse.getEntity());
             }
 
-        } catch (IOException ex ){
+        } catch (IOException  ex ){
+            log.debug("getContentRemote : error loading content at {}, ex: {}", url, ex.getLocalizedMessage() );
             if( httpClientResponse!= null){
                 try {
                     EntityUtils.consume(httpClientResponse.getEntity());
