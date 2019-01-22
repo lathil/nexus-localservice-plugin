@@ -58,7 +58,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Named("LocalService")
 @Singleton
 @Path(LocalServiceResource.RESOURCE_URI)
-@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 public class LocalServiceResource  extends ComponentSupport
         implements Resource {
 
@@ -96,7 +95,7 @@ public class LocalServiceResource  extends ComponentSupport
      */
     @GET
     @Path("resolve")
-    @Produces(MediaType.APPLICATION_XML)
+    @Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON, MediaType.TEXT_XML})
     public Response resolve(
             @QueryParam("r") String repositoryName,
             @QueryParam("g") String groupId,
