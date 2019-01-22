@@ -57,3 +57,36 @@ If the jar is publiahed in maven, you can use a maven loader in karaf:
 - NEXUS_HOME/nexus/etc/karaf/profile.cfg append config bundle.mvn\:com.ptoceti.nexus3.plugin.localservice/nexus-localservice-plugin/${version} = mvn:com.ptoceti.nexus3.plugin.localservice/nexus-localservice-plugin/${version}
 
 - NEXUS_HOME/nexus/etc/karaf/startup.properties append config reference\:file\:com.ptoceti.nexus3.plugin.localservice/${version}/nexus-localservice-plugin-${version}.jar = 200
+
+## Use
+To make the 2 api available on the same url as in Nexus2, modify NEXUS_HOME\etc\jetty\jetty.xml:
+- add reqrite rule:
+```
+<New id="ServiceLocalRewrite" class="org.eclipse.jetty.rewrite.handler.RewriteHandler">
+      <Call name="addRule">
+        <Arg>
+          <New class="org.eclipse.jetty.rewrite.handler.RewriteRegexRule">
+            <Set name="regex">/service/local/artifact/maven/(.*)</Set>
+            <Set name="replacement">/service/rest/servicelocal/artifact/maven/$1</Set>
+          </New>
+        </Arg>
+      </Call>
+  </New>
+ ```
+ - add ref to rewrite rule in the existing list of handlers:
+ ```
+ <Set name="handler">
+     <New id="Handlers" class="org.eclipse.jetty.server.handler.HandlerCollection">
+       <Set name="handlers">
+         <Array type="org.eclipse.jetty.server.Handler">
+ 			<Item>
+ 				<Ref refid="ServiceLocalRewrite"/>
+ 			  </Item>
+           <Item>
+             <Ref refid="NexusHandler"/>
+           </Item>
+         </Array>
+       </Set>
+     </New>
+   </Set>
+```
