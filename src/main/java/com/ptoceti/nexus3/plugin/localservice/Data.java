@@ -1,33 +1,37 @@
 package com.ptoceti.nexus3.plugin.localservice;
 
+import com.fasterxml.jackson.annotation.JsonRootName;
+import org.jboss.resteasy.annotations.providers.NoJackson;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
 @XmlAccessorType(XmlAccessType.FIELD)
+@JsonRootName(value = "data")
 public class Data {
     @XmlElement(name = "presentLocally")
-    String presentLocally;
+    public String presentLocally;
     @XmlElement(name = "groupId")
-    String groupId;
+    public String groupId;
     @XmlElement(name = "artifactId")
-    String artifactId;
+    public String artifactId;
     @XmlElement(name = "version")
-    String version;
+    public String version;
     @XmlElement(name = "baseVersion")
-    String baseVersion;
+    public String baseVersion;
     @XmlElement(name = "classifier")
-    String classifier;
+    public String classifier;
     @XmlElement(name = "extension")
-    String extension;
+    public String extension;
     @XmlElement(name = "snapshot")
-    String snapshot;
+    public String snapshot;
     @XmlElement(name = "snapshotBuildNumber")
-    String snapshotBuildNumber;
+    public String snapshotBuildNumber;
     @XmlElement(name = "snapshotTimeStamp")
-    String snapshotTimeStamp;
+    public String snapshotTimeStamp;
     @XmlElement(name = "repositoryPath")
-    String repositoryPath;
+    public String repositoryPath;
     @XmlElement(name = "sha1")
-    String sha1;
+    public String sha1;
 }

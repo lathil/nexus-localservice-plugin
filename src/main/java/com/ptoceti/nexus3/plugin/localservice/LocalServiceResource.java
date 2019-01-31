@@ -69,8 +69,7 @@ public class LocalServiceResource  extends ComponentSupport
     private final SearchService searchService;
 
     MetaDataHelper metaDataHelper;
-    Metadata componentMetaData;
-    Metadata versionMetaData;
+
 
     @Inject
     LocalServiceResource(SearchService searchService, RepositoryManager repositoryManager) {
@@ -123,6 +122,9 @@ public class LocalServiceResource  extends ComponentSupport
 
         String baseVersion = version;
         String resolvedVersion = version;
+
+        Metadata componentMetaData = null;
+        Metadata versionMetaData = null;
 
         try {
             if (resolvedVersion.equals("LATEST")) {
@@ -243,6 +245,9 @@ public class LocalServiceResource  extends ComponentSupport
         String baseVersion = version;
         String resolvedVersion = version;
 
+        Metadata componentMetaData = null;
+        Metadata versionMetaData = null;
+
         try {
             if (resolvedVersion.equals("LATEST")) {
                 componentMetaData = metaDataHelper.read(repository, metaDataHelper.metadataPath(groupId, artifactId, null));
@@ -334,10 +339,6 @@ public class LocalServiceResource  extends ComponentSupport
     protected String getReleaseVersionFromMetaData(Repository repository, Metadata metaData) {
         String releaseVersion = null;
         MavenFacet facet = repository.facet(MavenFacet.class);
-        if (VersionPolicy.SNAPSHOT.equals(facet.getVersionPolicy())) {
-            return null;
-        }
-
 
         if (metaData != null && metaData.getVersioning() != null) {
             releaseVersion = metaData.getVersioning().getRelease();
@@ -371,16 +372,8 @@ public class LocalServiceResource  extends ComponentSupport
             if (StringUtils.isEmpty(latestVersion) && versions.size() > 0) {
                 for (int i = versions.size() - 1; i >= 0; i--) {
                     String version = versions.get(i);
-                    if (VersionPolicy.SNAPSHOT.equals(facet.getVersionPolicy()) && version.endsWith(SNAPSHOT_VERSION_SUFFIX)) {
-                        latestVersion = version;
-                        break;
-                    } else if (VersionPolicy.RELEASE.equals(facet.getVersionPolicy()) && !version.endsWith(SNAPSHOT_VERSION_SUFFIX)) {
-                        latestVersion = version;
-                        break;
-                    } else {
-                        latestVersion = version;
-                        break;
-                    }
+                    latestVersion = version;
+
                 }
             }
         } else {
@@ -395,9 +388,6 @@ public class LocalServiceResource  extends ComponentSupport
 
         String snapshotVersion = null;
         MavenFacet facet = repository.facet(MavenFacet.class);
-        if (!VersionPolicy.SNAPSHOT.equals(facet.getVersionPolicy()) && !VersionPolicy.MIXED.equals(facet.getVersionPolicy())) {
-            return null;
-        }
 
         if (metaData != null && metaData.getVersioning() != null) {
 
